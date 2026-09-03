@@ -81,6 +81,11 @@
     "jsSrcsDir": "src/specs",
     "android": {
       "javaPackageName": "com.figmablur"
+    },
+    "ios": {
+      "componentProvider": {
+        "FigmaBlurView": "FigmaBlurViewComponentView"
+      }
     }
   }
 }

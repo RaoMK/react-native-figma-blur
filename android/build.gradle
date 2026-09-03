@@ -2,13 +2,21 @@ buildscript {
   ext.safeExtGet = { prop, fallback ->
     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
   }
-  repositories {
-    google()
-    mavenCentral()
-  }
-  dependencies {
-    classpath "com.android.tools.build:gradle:8.7.2"
-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '2.0.21')}"
+
+  // Only pull the plugins in when this project is built on its own. As a
+  // dependency of an app, the app's root buildscript already supplies AGP and
+  // the Kotlin plugin and subprojects inherit that classpath — declaring a
+  // second, pinned version here is how libraries end up fighting the host app's
+  // toolchain.
+  if (project == rootProject) {
+    repositories {
+      google()
+      mavenCentral()
+    }
+    dependencies {
+      classpath "com.android.tools.build:gradle:8.7.2"
+      classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', '2.0.21')}"
+    }
   }
 }
 
@@ -27,10 +35,6 @@ android {
     // flat tint instead. See README "Why minSdk 31".
     minSdk safeExtGet("minSdkVersion", 24)
     targetSdk safeExtGet("targetSdkVersion", 35)
-  }
-
-  buildFeatures {
-    buildConfig true
   }
 
   compileOptions {

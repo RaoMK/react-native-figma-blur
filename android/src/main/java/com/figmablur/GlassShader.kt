@@ -20,6 +20,8 @@ uniform float  uRadius;
 uniform float  uBand;
 uniform float  uRefraction;
 uniform float  uSpecular;
+uniform float  uLift;
+uniform float  uVibrancy;
 // `layout(color)` is required for setColorUniform: it tells Skia this uniform
 // is a colour and must be converted into the shader's working colour space.
 // Without it setColorUniform throws rather than silently mis-rendering.
@@ -57,6 +59,27 @@ half4 main(float2 coord) {
   // than as a translucent hole.
   half4 c = backdrop.eval(coord - n * (uRefraction * bend));
 
+  // The material itself, before any user tint.
+  //
+  // A gamma lift, which is what actually matches iOS 26's UIGlassEffect. The
+  // obvious model — a translucent white scrim, optionally with a saturation
+  // boost — does not fit: reproducing Apple's lightening that way drives the
+  // darkest channel below zero, and clamping it there lands the `clear` variant
+  // at saturation 0.73 where iOS reads 0.91.
+  //
+  // A power curve fits both variants to within ~4% per channel and needs no
+  // clamp, because it lifts dark values hard and bright ones barely. That is
+  // also why glass looks lit rather than milky: a scrim washes every channel
+  // toward white together, while this keeps the gap between them.
+  c.rgb = pow(clamp(c.rgb, 0.0, 1.0), half3(half(uLift)));
+
+  // The lift alone lands the luminance but flattens the hue apart, so a vibrancy
+  // pass restores the spread around it. `regular` needs it (0.26 -> 0.36
+  // saturation, matching iOS); `clear` is already within tolerance and leaves it
+  // at 1.0 rather than overshooting its darkest channel to zero.
+  half vl = dot(c.rgb, half3(0.2126, 0.7152, 0.0722));
+  c.rgb = clamp(mix(half3(vl), c.rgb, half(uVibrancy)), 0.0, 1.0);
+
   c.rgb = mix(c.rgb, uTint.rgb, uTint.a);
 
   // Specular rim. Narrow (pow 8) so it reads as an edge catching light instead
@@ -81,4 +104,20 @@ half4 main(float2 coord) {
 
   const val SPECULAR_REGULAR = 0.18
   const val SPECULAR_CLEAR = 0.10
+
+  /**
+   * The glass material, calibrated against iOS 26's UIGlassEffect.
+   *
+   * Measured by rendering the same card over the same backdrop on both platforms
+   * and sampling through the glass. Over a #34C759 band iOS takes
+   * rgb(52,199,89) -> rgb(159,248,179); over #00C7BE it takes
+   * rgb(0,199,190) -> rgb(21,225,216). These exponents reproduce both.
+   *
+   * Re-derive them the same way if a future iOS moves the material — the
+   * sampling procedure is the point, not the constants.
+   */
+  const val LIFT_REGULAR = 0.2966
+  const val LIFT_CLEAR = 0.635
+  const val VIBRANCY_REGULAR = 1.37
+  const val VIBRANCY_CLEAR = 1.0
 }

@@ -62,6 +62,25 @@ Still, prefer `backdrop` for anything continuously animating on iOS.
 
 Android has no equivalent, so it is synthesised in AGSL — [`GlassShader.kt`](android/src/main/java/com/figmablur/GlassShader.kt) — and chained into the same `RenderEffect` as the blur, so the whole material is one GPU pass. The two things that separate glass from a frosted panel are both there: the rim magnifies what is behind it (sampling displaced along a rounded-rect SDF normal), and it catches light (a narrow specular term). Requires API 33+; below that you get blur and tint without refraction.
 
+The material itself is calibrated against iOS, not guessed. Sampling the same
+card over the same backdrop on both platforms:
+
+| over `#34C759` | iOS | Android |
+|---|---|---|
+| `regular` | rgb(159,248,179) · sat 0.36 · lum 224 | rgb(160,244,168) · sat 0.34 · lum 220 |
+| `clear` | rgb(21,225,216) · sat 0.91 · lum 181 | rgb(16,218,210) · sat 0.93 · lum 175 |
+
+The model that fits is a gamma lift plus a vibrancy pass, not the translucent
+white scrim you would reach for first — a scrim reproduces the lightening but
+desaturates well past what Apple's material does, and pushing it far enough
+drives the darkest channel to zero. A power curve lifts darks hard and lights
+barely, which is why glass reads as lit rather than milky.
+
+Two caveats. The constants are calibrated for light backdrops; dark mode is not
+yet fitted. And iOS's glass blurs by an amount `UIGlassEffect` does not expose,
+so the Android blur under the material is set by `blurRadius` and can differ
+slightly in softness even where the colour matches.
+
 `glassInteractive` is accepted and ignored on Android rather than throwing, so shared JSX renders on both platforms.
 
 ## Measured parity

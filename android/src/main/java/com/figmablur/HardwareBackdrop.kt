@@ -109,6 +109,15 @@ class HardwareBackdrop {
         (if (variant == "clear") GlassShader.SPECULAR_CLEAR
          else GlassShader.SPECULAR_REGULAR).toFloat(),
       )
+      val isClear = variant == "clear"
+      setFloatUniform(
+        "uLift",
+        (if (isClear) GlassShader.LIFT_CLEAR else GlassShader.LIFT_REGULAR).toFloat(),
+      )
+      setFloatUniform(
+        "uVibrancy",
+        (if (isClear) GlassShader.VIBRANCY_CLEAR else GlassShader.VIBRANCY_REGULAR).toFloat(),
+      )
       setColorUniform("uTint", tintColor)
     }
     return RenderEffect.createRuntimeShaderEffect(shader, "backdrop")

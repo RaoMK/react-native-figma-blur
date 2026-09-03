@@ -43,6 +43,19 @@ Both cap the post-downscale sigma near 4px, which also puts Android permanently 
 
 The capture is padded outward by 3σ so edge pixels blur from real content rather than from a clamped border. Without that, the blur visibly changes character in a band around its own edge — the usual tell of a home-grown backdrop blur.
 
+### A note on `blurMode="layer"`
+
+Backdrop blur is free per frame on both platforms — the GPU is already compositing
+what is behind the view. Layer blur is not: it filters content this view owns.
+
+Android gets that for free too, via `View.setRenderEffect`. iOS has no equivalent
+— `CALayer.filters` is unsupported there, and applying a private `CAFilter` to an
+ordinary content layer renders undefined garbage rather than failing — so the
+children are rasterised and blurred through Core Image instead. That is
+recomputed only when React re-renders the subtree, not every frame, and the
+refresh is coalesced so a burst of prop, mount and layout changes costs one pass.
+Still, prefer `backdrop` for anything continuously animating on iOS.
+
 ## Liquid Glass
 
 `GlassView` is the platform's own glass material on iOS 26+ (`UIGlassEffect`, including `glassInteractive`).

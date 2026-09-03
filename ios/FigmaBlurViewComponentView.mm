@@ -3,6 +3,7 @@
 #import "FigmaBlurGlass.h"
 #import "FigmaBlurMath.h"
 
+#import <CoreImage/CoreImage.h>
 #import <React/RCTConversions.h>
 #import <react/renderer/components/RNFigmaBlurSpec/ComponentDescriptors.h>
 #import <react/renderer/components/RNFigmaBlurSpec/EventEmitters.h>
@@ -13,6 +14,42 @@
 
 using namespace facebook::react;
 
+/**
+ * Gaussian blur of an image, at the same sigma the rest of the library speaks.
+ *
+ * The edges are deliberately left to fall off rather than clamped: Figma's Layer
+ * blur softens content away at its own boundary, and Android's layer path uses
+ * DECAL for the same reason. Cropping back to the input extent keeps the result
+ * the size the caller asked for, since a blur otherwise grows the extent.
+ */
+static UIImage *FBBlurImage(UIImage *image, CGFloat sigma) {
+  static CIContext *context;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{ context = [CIContext contextWithOptions:nil]; });
+
+  CIImage *input = [CIImage imageWithCGImage:image.CGImage];
+  CIFilter *blur = [CIFilter filterWithName:@"CIGaussianBlur"];
+  if (blur == nil) return nil;
+  [blur setValue:input forKey:kCIInputImageKey];
+  // CIGaussianBlur's inputRadius is the Gaussian standard deviation, in pixels,
+  // so the point-space sigma is scaled by the snapshot's scale.
+  [blur setValue:@(sigma * image.scale) forKey:kCIInputRadiusKey];
+
+  CIImage *output = blur.outputImage;
+  if (output == nil) return nil;
+
+  CGRect extent = CGRectMake(0, 0, image.size.width * image.scale,
+                             image.size.height * image.scale);
+  CGImageRef cgImage = [context createCGImage:output fromRect:extent];
+  if (cgImage == NULL) return nil;
+
+  UIImage *result = [UIImage imageWithCGImage:cgImage
+                                        scale:image.scale
+                                  orientation:UIImageOrientationUp];
+  CGImageRelease(cgImage);
+  return result;
+}
+
 @interface FigmaBlurViewComponentView () <RCTFigmaBlurViewViewProtocol>
 @end
 
@@ -20,6 +57,9 @@ using namespace facebook::react;
   FigmaBlurBackdrop *_backdrop;
   FigmaBlurGlass *_glass;
   UIView *_contentContainer;
+  UIImageView *_layerBlurView;
+  CGFloat _layerBlurSigma;
+  BOOL _layerBlurRefreshScheduled;
   NSString *_activeGlassVariant;
 }
 
@@ -58,12 +98,20 @@ using namespace facebook::react;
                           index:(NSInteger)index
 {
   [_contentContainer insertSubview:childComponentView atIndex:index];
+  [self setNeedsLayerBlurRefresh];
 }
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
                             index:(NSInteger)index
 {
   [childComponentView removeFromSuperview];
+  [self setNeedsLayerBlurRefresh];
+}
+
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  // The snapshot is bounds-sized, so a resize invalidates it.
+  [self setNeedsLayerBlurRefresh];
 }
 
 #pragma mark - Props
@@ -123,34 +171,91 @@ using namespace facebook::react;
 }
 
 - (void)applyBlurMode:(FigmaBlurViewBlurMode)mode sigma:(CGFloat)sigma {
+  _layerBlurSigma = sigma;
+
   if (mode == FigmaBlurViewBlurMode::Layer) {
-    // Layer blur blurs the view's own children rather than what is behind it,
-    // so the backdrop is switched off entirely and the filter moves to the
-    // content container's layer.
+    // Layer blur filters the view's own children rather than what is behind it,
+    // so the backdrop is switched off entirely.
     _backdrop.hidden = YES;
-    _contentContainer.layer.filters = [self layerBlurFiltersForSigma:sigma];
+    if (_layerBlurView == nil) {
+      _layerBlurView = [[UIImageView alloc] initWithFrame:self.bounds];
+      _layerBlurView.autoresizingMask =
+          UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+      _layerBlurView.userInteractionEnabled = NO;
+      [self addSubview:_layerBlurView];
+    }
+    [self setNeedsLayerBlurRefresh];
   } else {
-    // Platform glass, when present, is the material — an active backdrop
-    // underneath it would blur everything a second time.
     _backdrop.hidden = (_glass != nil);
-    _contentContainer.layer.filters = nil;
+    [_layerBlurView removeFromSuperview];
+    _layerBlurView = nil;
+    _contentContainer.hidden = NO;
   }
 }
 
-- (NSArray *)layerBlurFiltersForSigma:(CGFloat)sigma {
-  if (sigma <= 0.01) return nil;
-  Class filterClass = NSClassFromString(@"CAFilter");
-  if (filterClass == nil) return nil;
-  id blur = [filterClass performSelector:NSSelectorFromString(@"filterWithType:")
-                              withObject:@"gaussianBlur"];
-  if (blur == nil) return nil;
-  @try {
-    [blur setValue:@(FBSigmaToInputRadius(sigma)) forKey:@"inputRadius"];
-    [blur setValue:@YES forKey:@"inputNormalizeEdges"];
-  } @catch (__unused NSException *e) {
-    return nil;
+/**
+ * Render the children, blur the result, and show that instead of the children.
+ *
+ * The tempting implementation is `contentContainer.layer.filters = @[gaussian]`,
+ * mirroring what the backdrop path does, and it is wrong: CALayer's `filters` is
+ * documented as unsupported on iOS. It happens to work on CABackdropLayer, which
+ * is why backdrop mode can use it, but on an ordinary content layer it renders
+ * undefined garbage — in practice a white block with a slab of uninitialised
+ * memory beside it.
+ *
+ * So the content is rasterised and blurred explicitly. That is more expensive
+ * than the backdrop path, but layer blur applies to content this view owns, which
+ * changes only when React re-renders it — not every frame like a backdrop. The
+ * refresh is coalesced onto the next runloop turn so a burst of prop, mount and
+ * layout changes costs one rasterisation rather than several.
+ */
+- (void)setNeedsLayerBlurRefresh {
+  if (_layerBlurRefreshScheduled || _layerBlurView == nil) return;
+  _layerBlurRefreshScheduled = YES;
+  __weak __typeof(self) weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    __typeof(self) strongSelf = weakSelf;
+    if (strongSelf == nil) return;
+    strongSelf->_layerBlurRefreshScheduled = NO;
+    [strongSelf refreshLayerBlur];
+  });
+}
+
+- (void)refreshLayerBlur {
+  if (_layerBlurView == nil) return;
+
+  if (_layerBlurSigma <= 0.01 || CGRectIsEmpty(self.bounds)) {
+    // Nothing to blur: show the children directly rather than a stale bitmap.
+    _contentContainer.hidden = NO;
+    _layerBlurView.image = nil;
+    return;
   }
-  return @[blur];
+
+  CGRect bounds = self.bounds;
+  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+  format.opaque = NO;
+  UIGraphicsImageRenderer *renderer =
+      [[UIGraphicsImageRenderer alloc] initWithBounds:bounds format:format];
+
+  // The container has to be visible for the duration of the render, or it draws
+  // nothing; it goes back to hidden immediately so only the blurred copy shows.
+  BOOL wasHidden = _contentContainer.hidden;
+  _contentContainer.hidden = NO;
+  UIImage *snapshot = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+    [self->_contentContainer.layer renderInContext:ctx.CGContext];
+  }];
+  _contentContainer.hidden = wasHidden;
+
+  UIImage *blurred = FBBlurImage(snapshot, _layerBlurSigma);
+  if (blurred == nil) {
+    // Blur unavailable: unblurred children beat a blank card.
+    _contentContainer.hidden = NO;
+    _layerBlurView.image = nil;
+    return;
+  }
+
+  _layerBlurView.image = blurred;
+  _contentContainer.hidden = YES;
 }
 
 #pragma mark - Glass
@@ -204,7 +309,10 @@ using namespace facebook::react;
   _activeGlassVariant = nil;
   _backdrop.hidden = NO;
   _backdrop.sigma = 0;
-  _contentContainer.layer.filters = nil;
+  [_layerBlurView removeFromSuperview];
+  _layerBlurView = nil;
+  _layerBlurSigma = 0;
+  _contentContainer.hidden = NO;
 }
 
 @end

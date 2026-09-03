@@ -68,7 +68,8 @@
     "prepare": "bob build",
     "parity": "node parity/measure.mjs",
     "prepack": "bob build",
-    "verify": "npm run typecheck && npm test && npm run parity"
+    "verify": "npm run typecheck && npm test && npm run parity",
+    "bench:android": "./scripts/bench-android.sh"
   },
   "peerDependencies": {
     "react": "*",

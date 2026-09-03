@@ -3,13 +3,14 @@ import { LogBox, Pressable, StatusBar, StyleSheet, Text, View } from 'react-nati
 import { Gallery } from './screens/Gallery';
 import { Scale } from './screens/Scale';
 import { ParityFixture } from './screens/ParityFixture';
+import { ListBench } from './screens/ListBench';
 
 // The dev warning toast would otherwise sit across the bottom of every
 // documentation plate. The only warning here is React Native's own notice about
 // codegenNativeComponent's import path, which is unrelated to what is on screen.
 LogBox.ignoreAllLogs();
 
-type ScreenName = 'gallery' | 'scale' | 'parity';
+type ScreenName = 'gallery' | 'scale' | 'parity' | 'bench';
 
 /**
  * `INITIAL` is what the docs capture script flips between runs, so each plate can
@@ -25,6 +26,7 @@ const SCREENS: Record<ScreenName, () => React.JSX.Element> = {
   gallery: Gallery,
   scale: Scale,
   parity: ParityFixture,
+  bench: ListBench,
 };
 
 export default function App() {

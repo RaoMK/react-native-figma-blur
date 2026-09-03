@@ -194,8 +194,14 @@ or pixel area. The blur itself runs on a downscaled copy, so `blurRadius={200}`
 costs about what `blurRadius={20}` costs. A simplified backdrop beats a smaller
 radius every time.
 
-[Performance and size](docs/performance.md) has the cost model and how to measure
-it on your own hardware.
+**Careful with lists.** One blur per cell in a `FlatList` is fine on iOS, where
+the compositor does the work, but scales quadratically on Android — each cell's
+capture redraws the cells before it. Put the blur on the chrome *over* the list
+instead, or use `blurRadius={0}` with a `tintColor` for cells. The example app
+has an A/B rig on its **bench** screen and `npm run bench:android` measures it.
+
+[Performance and size](docs/performance.md) has the cost model, the list
+guidance, and how to measure on your own hardware.
 
 ## API
 
@@ -290,9 +296,9 @@ cd ios && pod install && cd ..
 npm run ios      # or: npm run android
 ```
 
-Three screens, switchable from the picker: **gallery** and **scale** are the
-plates above; **parity** is the measurement fixture — deliberately harsh, because
-a soft backdrop hides a wrong sigma.
+Four screens, switchable from the picker: **gallery** and **scale** are the plates
+above; **parity** is the measurement fixture — deliberately harsh, because a soft
+backdrop hides a wrong sigma; **bench** is the list A/B rig.
 
 ## Contributing
 

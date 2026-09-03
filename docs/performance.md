@@ -67,6 +67,65 @@ The draw and capture paths allocate nothing per frame. Paints, the corner path,
 the location buffers and the ancestor-chain list are all fields, reused across
 frames. The noise tile is generated once and cached.
 
+## Lists: the case that bites
+
+The most common way to get into trouble is one blur per cell in a `FlatList`.
+The two platforms behave completely differently here, so this is worth reading
+before you build it.
+
+### iOS is fine
+
+Each blur is a `CABackdropLayer` and the compositor does the work. No capture, no
+per-frame CPU. Cost is GPU fill rate, roughly linear in the number of visible
+blurred cells. A list of blurred rows is viable.
+
+### Android scales quadratically
+
+Every attached blur view captures on **every frame**, and the capture draws the
+siblings painted before it. Inside a list's content container, those siblings are
+the other cells. So a cell at index `j` redraws `j` cells, and across `k` visible
+blurred cells you get:
+
+```
+≈ k² / 2  sibling re-records per frame
+```
+
+At 8 visible blurred rows that is ~28 re-records per frame, on top of 8 RenderNode
+recordings and 8 blur passes.
+
+Two things soften it, and neither makes it the right shape: virtualization means
+`k` is the number of **windowed** cells rather than your dataset length, and each
+sibling redraw re-records only that cell's own root — its children come back by
+RenderNode reference, which is cheap.
+
+**`downsampleFactor` does not help here.** It reduces GPU blur cost, and the
+bottleneck is CPU re-recording.
+
+### What to do instead
+
+| instead of | do |
+|---|---|
+| A blur on every cell | One blur on the **chrome over** the list — sticky header, tab bar, floating action bar. One capture regardless of list length, and it is what the material is for. |
+| A blur behind each card | `blurRadius={0}` with a `tintColor`. No capture at all, and at card size over a busy background the difference is usually invisible. |
+| Blurring during the scroll | `enabled={false}` on scroll begin, `true` on momentum end. Skipping the capture is far cheaper than unmounting the view. |
+
+If you genuinely need per-cell blur on Android, keep the simultaneously-visible
+count in single digits and measure on your lowest-end target.
+
+### Measure it yourself
+
+The example app ships an A/B rig — the **bench** screen renders the same list
+three ways (`blur cells` / `tint only` / `chrome`) so the difference is
+attributable to the blur and nothing else. Flip mode on screen, then:
+
+```sh
+npm run bench:android              # the example app
+npm run bench:android -- com.yourapp 12
+```
+
+It scrolls, then reports frame counts, jank and percentiles. Compare **modes on
+one device**; do not compare devices.
+
 ## Measuring it on your hardware
 
 Frame numbers from an emulator are worthless — a software GPU is not the thing

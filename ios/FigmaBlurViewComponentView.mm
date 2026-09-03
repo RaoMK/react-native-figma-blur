@@ -37,13 +37,33 @@ using namespace facebook::react;
         UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self addSubview:_backdrop];
 
-    // Children mount into their own container rather than into `self`, which is
-    // what keeps them reliably above the blur without any index arithmetic in
-    // mount/unmount.
+    // Children go into their own container, mounted above the backdrop.
+    //
+    // Note this is deliberately NOT `self.contentView`: RCTViewComponentView
+    // mounts children into `currentContainerView` at index 0..n regardless of
+    // what contentView is set to, which drops them *underneath* the backdrop and
+    // blurs the very content they were meant to sit on top of. So the mounting
+    // is overridden below instead.
     _contentContainer = [[UIView alloc] initWithFrame:self.bounds];
-    self.contentView = _contentContainer;
+    _contentContainer.autoresizingMask =
+        UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self addSubview:_contentContainer];
   }
   return self;
+}
+
+#pragma mark - Child mounting
+
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
+                          index:(NSInteger)index
+{
+  [_contentContainer insertSubview:childComponentView atIndex:index];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView
+                            index:(NSInteger)index
+{
+  [childComponentView removeFromSuperview];
 }
 
 #pragma mark - Props

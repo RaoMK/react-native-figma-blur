@@ -90,6 +90,11 @@ export default function App() {
       <Backdrop />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* First, not last: which backend actually went live decides whether the
+            blurs below are exact or approximated, so it belongs above them. */}
+        <Text style={styles.title}>This device</Text>
+        <CapabilityReadout caps={caps} />
+
         <Text style={styles.title}>Figma blur parity</Text>
 
         {FIGMA_BLUR_VALUES.map(value => (
@@ -135,9 +140,6 @@ export default function App() {
           <Text style={styles.cardLabel}>children are blurred</Text>
           <Text style={styles.cardSub}>Figma's Layer blur, not Background blur</Text>
         </FigmaBlurView>
-
-        <Text style={styles.title}>This device</Text>
-        <CapabilityReadout caps={caps} />
 
         <FigmaBlurView
           blurRadius={40}

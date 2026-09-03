@@ -57,6 +57,9 @@ repositories {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:${safeExtGet('kotlinVersion', '2.0.21')}"
+  // For @RequiresApi on HardwareBackdrop, which is the marker that keeps the
+  // API 31+ surface out of the classes loaded on older devices.
+  implementation "androidx.annotation:annotation:1.9.1"
 }
 
 react {

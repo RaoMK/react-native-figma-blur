@@ -3,9 +3,9 @@ package com.figmablur
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ModuleSpec
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
-import com.facebook.react.uimanager.ViewManager
 
 class FigmaBlurPackage : BaseReactPackage() {
 
@@ -25,7 +25,8 @@ class FigmaBlurPackage : BaseReactPackage() {
     )
   }
 
-  override fun createViewManagers(
-    context: ReactApplicationContext
-  ): List<ViewManager<*, *>> = listOf(FigmaBlurViewManager())
+  // getViewManagers rather than createViewManagers: BaseReactPackage builds the
+  // latter from these specs, and its return type is narrower than it looks.
+  override fun getViewManagers(reactContext: ReactApplicationContext): List<ModuleSpec> =
+    listOf(ModuleSpec.viewManagerSpec { FigmaBlurViewManager() })
 }

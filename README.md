@@ -109,6 +109,25 @@ Reports which backend is live, whether the radius is exact, and whether glass is
 { hasBackdropBlur, hasExactRadius, hasNativeGlass, hasShaderGlass, engine, apiLevel }
 ```
 
+## Running the example
+
+`example/` is a bare RN app that consumes the library from source. It is arranged
+as a parity fixture: high-contrast bands with hard step edges, because a soft
+photo hides a wrong sigma and sharp edges do not. Screenshot it on both platforms
+and compare, or rebuild the same scene in Figma, export it, and feed both to
+`parity/measure.mjs`.
+
+```bash
+npm install && npm run prepare     # build the library first
+cd example && npm install
+cd ios && pod install && cd ..
+npm run ios      # or: npm run android
+```
+
+The saturation switch on screen toggles between `1.0` (Figma) and `1.8` (roughly
+what iOS system materials do), which is the quickest way to see why a stock blur
+never quite matches the mock however much you tune the radius.
+
 ## Platform support
 
 | | Backdrop blur | Exact radius | Glass |

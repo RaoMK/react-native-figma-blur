@@ -51,6 +51,20 @@ Android has no equivalent, so it is synthesised in AGSL — [`GlassShader.kt`](a
 
 `glassInteractive` is accepted and ignored on Android rather than throwing, so shared JSX renders on both platforms.
 
+## Measured parity
+
+Both platforms rendering the same `blurRadius={40}` over a hard step edge, sigma
+recovered from the screenshots and converted to density-independent units:
+
+| | measured | vs model (20.0) |
+|---|---|---|
+| iOS — iPhone 17 Pro, @3x | 19.59 dip | −2.1% |
+| Android — Pixel 6, @2.625x | 20.16 dip | +0.8% |
+| **iOS vs Android** | | **2.9%** |
+
+Engines live for those numbers: `ios.backdropLayer` (exact radius, native glass)
+and `android.renderEffect+agsl` (exact radius, shader glass).
+
 ## Verifying parity
 
 The claim is testable, and the harness is the point:

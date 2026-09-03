@@ -100,26 +100,42 @@ function checkConstants() {
  * derivative and compute its standard deviation directly — no solver, no initial
  * guess, and it degrades gracefully on a noisy screenshot.
  */
-function measureSigma(png, rowIndex) {
-  const row = luminanceRow(png, rowIndex ?? Math.floor(png.height / 2));
+function measureSigma(png, rowIndex, x0, x1) {
+  const full = luminanceRow(png, rowIndex ?? Math.floor(png.height / 2));
+  const from = x0 ?? 0;
+  const to = x1 ?? full.length;
+  const row = full.slice(from, to);
 
   const d = new Float64Array(row.length - 1);
+  for (let i = 0; i < d.length; i++) d[i] = Math.abs(row[i + 1] - row[i]);
+
+  // Isolate the dominant edge before measuring.
+  //
+  // On a synthetic strip the whole row is one edge, but on a real screenshot it
+  // also contains card borders, text and the next band. Those extra edges would
+  // inflate the variance and report a blur far softer than the real one, so we
+  // find the strongest gradient and measure only the window around it. The
+  // window is wide enough (±12% of the row) to contain the full skirt of any
+  // blur we would plausibly be asked to verify.
+  let peak = 0;
+  for (let i = 1; i < d.length; i++) if (d[i] > d[peak]) peak = i;
+  const half = Math.max(8, Math.round(d.length * 0.12));
+  const lo = Math.max(0, peak - half);
+  const hi = Math.min(d.length, peak + half);
+
   let total = 0;
-  for (let i = 0; i < d.length; i++) {
-    d[i] = Math.abs(row[i + 1] - row[i]);
-    total += d[i];
-  }
+  for (let i = lo; i < hi; i++) total += d[i];
   if (total < 1e-6) throw new Error('no edge found in this row — is the crop right?');
 
   let mean = 0;
-  for (let i = 0; i < d.length; i++) mean += (i + 0.5) * (d[i] / total);
+  for (let i = lo; i < hi; i++) mean += (i + 0.5) * (d[i] / total);
 
   let variance = 0;
-  for (let i = 0; i < d.length; i++) {
+  for (let i = lo; i < hi; i++) {
     const dx = i + 0.5 - mean;
     variance += dx * dx * (d[i] / total);
   }
-  return { sigma: Math.sqrt(variance), edgeAt: mean };
+  return { sigma: Math.sqrt(variance), edgeAt: from + mean };
 }
 
 function parseArgs(argv) {
@@ -135,8 +151,9 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.reference && args.actual) {
-    const ref = measureSigma(readPng(args.reference), args.row && Number(args.row));
-    const act = measureSigma(readPng(args.actual), args.row && Number(args.row));
+    const num = v => (v === undefined ? undefined : Number(v));
+    const ref = measureSigma(readPng(args.reference), num(args.row), num(args.x0), num(args.x1));
+    const act = measureSigma(readPng(args.actual), num(args.row), num(args.x0), num(args.x1));
     const error = ((act.sigma - ref.sigma) / ref.sigma) * 100;
 
     console.log('');

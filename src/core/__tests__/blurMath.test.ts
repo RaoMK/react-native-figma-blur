@@ -28,6 +28,11 @@ describe('skia radius <-> sigma', () => {
   it('reports zero radius below the intercept, where Skia produces no blur', () => {
     expect(skiaSigmaToRadius(0.4)).toBe(0);
   });
+
+  /** The measurement that pinned the conversion down; see blurMath.ts. */
+  it('predicts the sigma an unconverted radius would have produced', () => {
+    expect(skiaRadiusToSigma(6.556) * 8).toBeCloseTo(34.3, 1);
+  });
 });
 
 describe('downscale correction', () => {

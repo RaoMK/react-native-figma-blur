@@ -224,27 +224,22 @@ static UIImage *FBNoiseImage(void) {
 - (void)applyBackdropLayerBlur {
   CALayer *layer = self.layer;
 
-  // Sampling the backdrop at reduced resolution is where the performance comes
-  // from on older devices: a 1/4-scale capture is 16x less work to blur, and the
-  // high frequencies it discards are ones the blur was about to destroy anyway.
-  // The sigma is corrected for that scale so the visible result is unchanged.
-  double sigmaPx = _sigma;
-  double downsample = FBChooseDownsample(sigmaPx);
-  double effectiveSigma = FBDownscaledSigma(sigmaPx, downsample);
-
-  @try {
-    [layer setValue:@(1.0 / downsample) forKey:@"scale"];
-  } @catch (__unused NSException *e) {
-    // Older CABackdropLayer without `scale`: blur at full res instead.
-    effectiveSigma = sigmaPx;
-  }
-
+  // The sigma goes to the filter at full resolution, with no downsample
+  // correction.
+  //
+  // An earlier version set CABackdropLayer's `scale` to 1/d and divided the
+  // radius to match, mirroring what the Android path does. Measuring the
+  // rendered result against the model (parity/measure.mjs) showed the blur
+  // coming out exactly d times too weak: `scale` does not resample the backdrop
+  // the way that assumed, so the divided radius was simply a smaller blur. This
+  // path does not need it anyway — the backdrop layer already samples the
+  // composited frame on the GPU, which is why it stays cheap during scrolling.
   NSMutableArray *filters = [NSMutableArray array];
 
   if (_sigma > 0.01) {
     id blur = FBMakeFilter(kGaussianBlurFilterType);
     if (blur) {
-      [blur setValue:@(FBSigmaToInputRadius(effectiveSigma)) forKey:@"inputRadius"];
+      [blur setValue:@(FBSigmaToInputRadius(_sigma)) forKey:@"inputRadius"];
       // Without this the blur samples transparent black past the layer edge and
       // the result fades out around its own border.
       [blur setValue:@YES forKey:@"inputNormalizeEdges"];

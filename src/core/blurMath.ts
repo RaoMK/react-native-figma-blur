@@ -23,13 +23,19 @@
 export const FIGMA_BLUR_TO_SIGMA = 0.5;
 
 /**
- * Skia's radius->sigma conversion, used verbatim by Android's
- * `RenderEffect.createBlurEffect`, which passes its radius argument through
- * `SkBlurMask::ConvertRadiusToSigma` before handing it to `SkImageFilters::Blur`.
+ * Skia's radius->sigma conversion, applied by `RenderEffect.createBlurEffect`.
  *
  *   sigma = 0.57735 * radius + 0.5
  *
- * We need the inverse, because we speak sigma and it wants radius.
+ * The parameter is named `radiusX`/`radiusY` and is *not* a sigma: hwui passes it
+ * through `SkBlurMask::ConvertRadiusToSigma` before handing it to
+ * `SkImageFilters::Blur`. We speak sigma, so we invert it.
+ *
+ * Confirmed by measurement, and it is worth recording how. A build that passed
+ * sigma straight through rendered at 13.30 dip where the model called for 20.0.
+ * Feeding that same sigma through this conversion predicts
+ * (0.57735*6.556 + 0.5) * 8 = 13.06 dip — a 2% match, which is what pins the
+ * formula down. `parity/measure.mjs` is what would catch it changing.
  */
 const SKIA_RADIUS_TO_SIGMA_SLOPE = 0.57735;
 const SKIA_RADIUS_TO_SIGMA_INTERCEPT = 0.5;

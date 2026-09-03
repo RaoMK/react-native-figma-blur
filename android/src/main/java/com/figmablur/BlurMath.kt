@@ -21,10 +21,17 @@ object BlurMath {
   const val FIGMA_BLUR_TO_SIGMA = 0.5
 
   /**
-   * Skia's own radius->sigma conversion. `RenderEffect.createBlurEffect` does not
-   * take a sigma: it passes its radius argument through
-   * `SkBlurMask::ConvertRadiusToSigma` before reaching `SkImageFilters::Blur`.
-   * We speak sigma, so we invert it.
+   * Skia's radius->sigma conversion, applied by RenderEffect.createBlurEffect.
+   *
+   *   sigma = 0.57735 * radius + 0.5
+   *
+   * The parameter is named radiusX/radiusY and is not a sigma: hwui runs it
+   * through SkBlurMask::ConvertRadiusToSigma before SkImageFilters::Blur. We
+   * speak sigma, so we invert it.
+   *
+   * Confirmed by measurement on a Pixel 6: a build that passed sigma through
+   * unconverted rendered 13.30 dip where the model called for 20.0, and feeding
+   * that sigma through this formula predicts 13.06 — which is what pins it down.
    */
   private const val SKIA_SLOPE = 0.57735
   private const val SKIA_INTERCEPT = 0.5

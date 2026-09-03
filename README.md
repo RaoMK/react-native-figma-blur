@@ -1,149 +1,156 @@
-# react-native-figma-blur
+<h1 align="center">react-native-figma-blur</h1>
 
-Blur and Liquid Glass for React Native that render **identically on iOS and Android**, matched to what Figma draws — driven by one shared Gaussian model instead of two platforms' worth of guesswork.
+<p align="center">
+  Blur and Liquid Glass that look <b>the same on iOS and Android</b> —<br/>
+  and the same as the Figma file you were handed.
+</p>
 
-New Architecture only. No legacy bridge path.
+<p align="center">
+  <a href="https://www.npmjs.com/package/react-native-figma-blur"><img alt="npm" src="https://img.shields.io/npm/v/react-native-figma-blur.svg"></a>
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  <img alt="platforms" src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android-lightgrey.svg">
+  <img alt="architecture" src="https://img.shields.io/badge/New%20Architecture-only-8A2BE2.svg">
+</p>
 
 | iOS 26 · iPhone 17 Pro | Android 16 · Pixel 6 |
 |---|---|
 | ![Gallery on iOS](docs/screenshots/gallery-ios.png) | ![Gallery on Android](docs/screenshots/gallery-android.png) |
 
-Same JSX, same numbers, no per-platform branches. Materials, Liquid Glass, layer
-blur and per-corner radii, over a mesh gradient the library builds out of itself.
+<p align="center"><i>Same JSX. Same numbers. No per-platform branches.</i></p>
 
-### The blur scale
+---
 
-`blurRadius` is the number from Figma's inspector; sigma is what it resolves to.
-The grid behind the tiles is there to be destroyed — it is what makes one step
+## Install
+
+```sh
+npm install react-native-figma-blur
+```
+
+```sh
+yarn add react-native-figma-blur
+```
+
+Then rebuild the app — this package ships native code, so a Metro reload will not
+pick it up:
+
+```sh
+cd ios && pod install && cd ..   # iOS only
+npm run ios                      # or: npm run android
+```
+
+**Requirements:** React Native 0.76+ with the New Architecture, iOS 15.1+,
+Android 7.0+ (blur is active on Android 12 / API 31 and up — see
+[Platform support](#platform-support)).
+
+## Your first blur
+
+```tsx
+import { FigmaBlurView } from 'react-native-figma-blur';
+
+<FigmaBlurView blurRadius={40} style={{ borderRadius: 24, padding: 20 }}>
+  <Text>Sharp text on a blurred backdrop</Text>
+</FigmaBlurView>
+```
+
+That is the whole idea: **`blurRadius` is the number from Figma's inspector.**
+Paste it in. You do not convert it, and you do not tune it per platform.
+
+Two things to know straight away:
+
+- Put it **over** something. A backdrop blur shows what is painted behind it, so
+  with nothing behind it there is nothing to see.
+- Use **`tintColor`**, not `backgroundColor`. The blur sits above the background
+  and would hide it.
+
+```tsx
+<FigmaBlurView
+  blurRadius={40}
+  tintColor="rgba(255,255,255,0.45)"   // the fill from your Figma layer
+  style={{ borderRadius: 24, padding: 20 }}
+>
+  <Text>Now it looks like the mock</Text>
+</FigmaBlurView>
+```
+
+## Ready-made materials
+
+If you just want a good-looking panel, start here instead of picking numbers:
+
+```tsx
+import { FigmaBlurView, Materials } from 'react-native-figma-blur';
+
+<FigmaBlurView {...Materials.thin} style={{ borderRadius: 24 }} />
+```
+
+`ultraThin` · `thin` · `regular` · `thick`, each with a `…Dark` counterpart.
+
+These are the recipes designers actually draw — a background blur plus a
+translucent fill — so they match the mock rather than matching UIKit.
+
+## Liquid Glass
+
+```tsx
+import { GlassView } from 'react-native-figma-blur';
+
+<GlassView variant="regular" style={{ borderRadius: 28, height: 60 }}>
+  <Text>Glass</Text>
+</GlassView>
+```
+
+On iOS 26+ this is the platform's own glass material. On Android it is
+synthesised in a runtime shader — edge refraction, specular rim and all — and
+[colour-matched to iOS](docs/parity.md#measured-results) in both light and dark
+mode.
+
+## The blur scale
+
+`blurRadius` is a Figma value; sigma is the Gaussian it resolves to. The grid
+behind these tiles is there to be destroyed — it is what makes one step
 distinguishable from the next.
 
 | iOS | Android |
 |---|---|
 | ![Blur scale on iOS](docs/screenshots/scale-ios.png) | ![Blur scale on Android](docs/screenshots/scale-android.png) |
-```tsx
-import { FigmaBlurView, GlassView } from 'react-native-figma-blur';
 
-// blurRadius is the number straight off the Figma inspector.
-<FigmaBlurView blurRadius={40} tintColor="rgba(255,255,255,0.45)" style={{ borderRadius: 24 }}>
-  <Text>Same pixels on both platforms</Text>
-</FigmaBlurView>
+---
 
-<GlassView variant="regular" style={{ borderRadius: 28 }} />
-```
+## Why not just use a blur library?
 
-## Why existing blurs don't match
+Three things go wrong when you try to match a Figma mock on both platforms, and
+they compound:
 
-Three separate problems, and most libraries solve none of them:
+1. **Every layer speaks a different unit.** Figma's blur value is 2× the sigma.
+   CSS `blur()` *is* the sigma. Android's `RenderEffect` takes a Skia radius.
+   Core Animation takes another. Pass the same number to each and you get four
+   different blurs.
+2. **iOS materials saturate.** `UIBlurEffect` boosts backdrop saturation by
+   roughly 1.8×; Figma does not. This is why a stock iOS blur looks wrong beside
+   the mock, and no amount of radius tuning fixes it.
+3. **Downscaling softens.** The standard performance trick overshoots, because
+   blurs compose in variance rather than sigma.
 
-**Every layer speaks a different unit.** Figma's blur value is 2x the Gaussian sigma. CSS `blur()` *is* the sigma. Android's `RenderEffect` takes a Skia "radius" that it converts with `sigma = 0.57735·radius + 0.5`. Core Animation's `gaussianBlur` takes yet another. Passing the same number to each gives you three different blurs. This library defines blur once, as sigma in points, and converts at the very last step per platform — [`src/core/blurMath.ts`](src/core/blurMath.ts) is the only file where the number is decided.
+This library defines blur once — as a sigma — and converts per platform at the
+last step. [How it works](docs/how-it-works.md) has the detail.
 
-**iOS materials saturate.** `UIBlurEffect` boosts backdrop saturation by roughly 1.8x. Figma does not. This is the single biggest reason a stock iOS blur looks wrong next to the mock it came from, and it survives any amount of radius tuning. We default `saturation` to `1.0` and force it.
+**And it is measured, not asserted.** At `blurRadius={40}`:
 
-**Downscaling softens.** Blurring a downscaled backdrop is the standard performance trick, and the naive `sigma / d` overshoots, because the downscale is itself a box filter that contributes its own blur. Blurs compose in variance, not sigma, so the box's variance has to come out of the budget first:
+| | measured sigma | vs model (20.0) |
+|---|---|---|
+| iOS — iPhone 17 Pro | 19.59 dip | −2.1% |
+| Android — Pixel 6 | 20.16 dip | +0.8% |
+| **difference** | | **2.9%** |
 
-```
-sigmaDownscaled = sqrt(sigma² − (d² − 1)/12) / d
-```
-
-Skip that and Android renders visibly softer than iOS at the same nominal radius.
+You can run the check yourself: [`npm run parity`](docs/parity.md).
 
 ## Performance
 
 Both platforms are GPU-only, with no per-frame bitmap anywhere.
 
-**iOS** samples the backdrop through a `CABackdropLayer`, which is live GPU capture — it costs nothing extra during scrolling because there is no snapshot to retake. The backdrop is sampled at reduced resolution (`scale`) with the sigma corrected to match.
-
-**Android** records the ancestor tree into a `RenderNode` and hangs a `RenderEffect` off it. The only CPU cost is a display-list re-record, which scales with the *number of views* behind the blur, not with its pixel area. The blur itself runs on an already-downscaled texture — a 1/4-scale capture is ~16x less work — which is what keeps a large blur affordable on a cheap phone.
-
-Both cap the post-downscale sigma near 4px, which also puts Android permanently out of reach of its 250px `RenderEffect` limit.
-
-The capture is padded outward by 3σ so edge pixels blur from real content rather than from a clamped border. Without that, the blur visibly changes character in a band around its own edge — the usual tell of a home-grown backdrop blur.
-
-### A note on `blurMode="layer"`
-
-Backdrop blur is free per frame on both platforms — the GPU is already compositing
-what is behind the view. Layer blur is not: it filters content this view owns.
-
-Android gets that for free too, via `View.setRenderEffect`. iOS has no equivalent
-— `CALayer.filters` is unsupported there, and applying a private `CAFilter` to an
-ordinary content layer renders undefined garbage rather than failing — so the
-children are rasterised and blurred through Core Image instead. That is
-recomputed only when React re-renders the subtree, not every frame, and the
-refresh is coalesced so a burst of prop, mount and layout changes costs one pass.
-Still, prefer `backdrop` for anything continuously animating on iOS.
-
-## Liquid Glass
-
-`GlassView` is the platform's own glass material on iOS 26+ (`UIGlassEffect`, including `glassInteractive`).
-
-Android has no equivalent, so it is synthesised in AGSL — [`GlassShader.kt`](android/src/main/java/com/figmablur/GlassShader.kt) — and chained into the same `RenderEffect` as the blur, so the whole material is one GPU pass. The two things that separate glass from a frosted panel are both there: the rim magnifies what is behind it (sampling displaced along a rounded-rect SDF normal), and it catches light (a narrow specular term). Requires API 33+; below that you get blur and tint without refraction.
-
-The material itself is calibrated against iOS, not guessed. Sampling the same
-card over the same backdrop on both platforms:
-
-| light, over `#34C759` | iOS | Android |
-|---|---|---|
-| `regular` | rgb(159,248,179) · sat 0.36 · lum 224 | rgb(160,244,168) · sat 0.34 · lum 220 |
-| `clear` | rgb(21,225,216) · sat 0.91 · lum 181 | rgb(16,218,210) · sat 0.93 · lum 175 |
-
-| dark, over `#34C759` | iOS | Android |
-|---|---|---|
-| `regular` | rgb(5,91,25) · sat 0.95 · lum 68 | rgb(6,91,7) · sat 0.93 · lum 67 |
-| `clear` | rgb(21,225,216) · sat 0.91 · lum 181 | rgb(16,218,210) · sat 0.93 · lum 175 |
-
-The model that fits is a gamma lift plus a vibrancy pass, not the translucent
-white scrim you would reach for first — a scrim reproduces the lightening but
-desaturates well past what Apple's material does, and pushing it far enough
-drives the darkest channel to zero. A power curve lifts darks hard and lights
-barely, which is why glass reads as lit rather than milky.
-
-Dark mode is a separate fit, because the material inverts rather than dimming:
-`regular` halves luminance while *raising* saturation, so the same power curve
-runs with an exponent above 1. Android follows the night-mode configuration,
-which is the same signal iOS's glass follows — the system appearance, not how
-bright the backdrop happens to be.
-
-`clear` uses one set of constants for both appearances, because iOS does too:
-measured in dark mode it returns the same rgb(21,225,216) it produces in light.
-Branching there would invent a difference that is not in the platform.
-
-One caveat remains: iOS's glass blurs by an amount `UIGlassEffect` does not
-expose, so the Android blur under the material comes from `blurRadius` and can
-differ slightly in softness even where the colour matches.
-
-`glassInteractive` is accepted and ignored on Android rather than throwing, so shared JSX renders on both platforms.
-
-## Measured parity
-
-Both platforms rendering the same `blurRadius={40}` over a hard step edge, sigma
-recovered from the screenshots and converted to density-independent units:
-
-| | measured | vs model (20.0) |
-|---|---|---|
-| iOS — iPhone 17 Pro, @3x | 19.59 dip | −2.1% |
-| Android — Pixel 6, @2.625x | 20.16 dip | +0.8% |
-| **iOS vs Android** | | **2.9%** |
-
-Engines live for those numbers: `ios.backdropLayer` (exact radius, native glass)
-and `android.renderEffect+agsl` (exact radius, shader glass).
-
-## Verifying parity
-
-The claim is testable, and the harness is the point:
-
-```bash
-npm run parity
-```
-
-That asserts the model's constants are identical in all three places they exist — TypeScript, the iOS C header, and the Kotlin object — so a drift fails CI instead of quietly splitting the platforms.
-
-Given two images it also measures them:
-
-```bash
-node parity/measure.mjs --reference figma-40.png --actual device-40.png --blur 40
-```
-
-It recovers the actual Gaussian sigma from a blurred step edge (the derivative of a blurred step *is* the Gaussian, so its standard deviation is the answer — no curve fitting), reports the error, and fails above 2%, which is roughly where a sigma difference becomes visible side by side. Passing `--blur` also prints the `FIGMA_BLUR_TO_SIGMA` implied by your reference, which is how you re-calibrate if a future OS moves.
+**iOS** samples the backdrop through a `CABackdropLayer` — live GPU capture, so
+it costs nothing extra while scrolling. **Android** records the ancestor tree
+into a `RenderNode` and hangs a `RenderEffect` off it; the only CPU cost is a
+display-list re-record, which scales with the number of views behind the blur
+rather than its pixel area.
 
 ## API
 
@@ -161,77 +168,91 @@ It recovers the actual Gaussian sigma from a blurred step edge (the derivative o
 | `glassTintColor` | `ColorValue` | — | |
 | `glassInteractive` | `boolean` | `false` | iOS 26+ only |
 | `fallbackColor` | `ColorValue` | — | Painted where no GPU blur exists |
-| `enabled` | `boolean` | `true` | Cheaply switch the blur off without unmounting |
+| `enabled` | `boolean` | `true` | Switch the blur off without unmounting |
 
-Corner radii come from `style` (`borderRadius` and the per-corner variants) and are applied to the blur's own mask. Note that `backgroundColor` sits *behind* the blur and will be invisible — use `tintColor`.
+Corner radii come from `style` — `borderRadius` and the per-corner variants — and
+are applied to the blur's own mask.
 
 ### `<GlassView />`
 
-`FigmaBlurView` with `glass` preset and a matching default radius. Takes `variant` (`'regular' | 'clear'`).
+`FigmaBlurView` with `glass` preset and a matching default radius. Takes
+`variant` (`'regular' | 'clear'`).
 
 ### `Materials`
 
-Ready-made recipes — `ultraThin`, `thin`, `regular`, `thick` and their `…Dark` counterparts. These are the Figma recipes designers actually draw (a background blur plus a translucent fill), so they match the mock rather than matching UIKit.
-
-```tsx
-<FigmaBlurView {...Materials.thin} />
-```
+`ultraThin` · `thin` · `regular` · `thick`, plus `…Dark` variants.
 
 ### `getCapabilities()`
 
-Reports which backend is live, whether the radius is exact, and whether glass is native or synthesised. Worth putting in your bug report template.
+Reports which backend is live, whether the radius is exact, and whether glass is
+native or synthesised. Worth including in bug reports.
 
 ```ts
 { hasBackdropBlur, hasExactRadius, hasNativeGlass, hasShaderGlass, engine, apiLevel }
 ```
-
-## Running the example
-
-`example/` is a bare RN app that consumes the library from source. It is arranged
-as a parity fixture: high-contrast bands with hard step edges, because a soft
-photo hides a wrong sigma and sharp edges do not. Screenshot it on both platforms
-and compare, or rebuild the same scene in Figma, export it, and feed both to
-`parity/measure.mjs`.
-
-```bash
-npm install && npm run prepare     # build the library first
-cd example && npm install
-cd ios && pod install && cd ..
-npm run ios      # or: npm run android
-```
-
-The example carries three screens, switchable from the picker in the corner:
-**gallery** and **scale** are the plates above, and **parity** is the measurement
-fixture — deliberately harsh, with hard step edges, because a soft backdrop hides
-a wrong sigma. To reproduce a documentation plate, set `INITIAL` in `App.tsx` and
-turn `SHOW_PICKER` off.
-
-The saturation switch on screen toggles between `1.0` (Figma) and `1.8` (roughly
-what iOS system materials do), which is the quickest way to see why a stock blur
-never quite matches the mock however much you tune the radius.
 
 ## Platform support
 
 | | Backdrop blur | Exact radius | Glass |
 |---|---|---|---|
 | iOS 26+ | ✅ | ✅ | ✅ native |
-| iOS 15–25 | ✅ | ✅ | ⚠️ synthesised |
-| Android 33+ | ✅ | ✅ | ⚠️ synthesised |
-| Android 31–32 | ✅ | ✅ | ⚠️ blur + tint only |
-| Android <31 | ❌ `fallbackColor` | — | ❌ |
+| iOS 15.1–25 | ✅ | ✅ | ⚠️ synthesised |
+| Android 13+ (33) | ✅ | ✅ | ⚠️ synthesised |
+| Android 12 (31–32) | ✅ | ✅ | ⚠️ blur + tint only |
+| Android < 12 | ❌ `fallbackColor` | — | ❌ |
 
-### Why minSdk 31
+**Why Android 12 is the floor.** Below API 31 there is no GPU backdrop blur on
+Android at all — only CPU bitmap blurring, which drops frames on exactly the
+low-end devices it would exist to serve. Rather than pretend, the library paints
+`fallbackColor`. The package still installs at minSdk 24.
 
-Below API 31 Android has no GPU backdrop blur at all — only CPU bitmap blurring, which drops frames on exactly the low-end devices it would exist to serve. That is the jank this library was built to avoid, so below 31 it degrades to a flat `fallbackColor` rather than pretending. The library still *installs* at minSdk 24.
+### App Store note
 
-### App Store risk — read this before shipping
+The exact-radius path on iOS uses two private classes, `CABackdropLayer` and
+`CAFilter`. They are used openly here — plain string literals, no obfuscation —
+because you should be able to see exactly what is touched and decide for
+yourself. They are the only way to set a real Gaussian radius on iOS.
 
-The exact-radius path on iOS uses two private classes, `CABackdropLayer` and `CAFilter`. They are used openly here — plain string literals, no obfuscation — because you should be able to see exactly what is touched and decide for yourself. They are the only way to set a real Gaussian radius on iOS; `UIVisualEffectView` alone cannot do it.
+Every lookup is nil-checked and every path degrades: if the classes are
+unavailable the engine falls back to `UIVisualEffectView`, then to a fitted
+intensity curve. A softer blur, never a crash.
+`getCapabilities().hasExactRadius` tells you at runtime which one you got.
 
-Every lookup is nil-checked and every path degrades. If the classes are unavailable, the engine falls back to `UIVisualEffectView` and then to a fitted intensity curve — a softer, approximate blur, never a crash. `getCapabilities().hasExactRadius` tells you at runtime which one you got.
+A build-time switch to remove the private symbols entirely is on the
+[roadmap](ROADMAP.md).
 
-If your risk tolerance rules private API out entirely, set `saturation` and `tintColor` to taste on the fallback path and accept that iOS will be an approximation of the Figma reference rather than a match.
+## Documentation
+
+- **[How it works](docs/how-it-works.md)** — the sigma model, and what each
+  platform actually does
+- **[Verifying parity](docs/parity.md)** — the harness, the measured numbers, and
+  two ways measuring has already gone wrong
+- **[Troubleshooting](docs/troubleshooting.md)** — start with `getCapabilities()`
+- **[Roadmap](ROADMAP.md)** — what is next, and what is honestly not there yet
+
+## Running the example
+
+```bash
+git clone https://github.com/mowgli/react-native-figma-blur
+cd react-native-figma-blur
+npm install && npm run prepare
+
+cd example && npm install
+cd ios && pod install && cd ..
+npm run ios      # or: npm run android
+```
+
+Three screens, switchable from the picker: **gallery** and **scale** are the
+plates above; **parity** is the measurement fixture — deliberately harsh, because
+a soft backdrop hides a wrong sigma.
+
+## Contributing
+
+Very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). There is one rule that
+matters: **a change to how a blur looks needs a measurement, not a screenshot.**
+During development a blur shipped at 5× too weak and another at 48% too strong,
+and both looked entirely plausible by eye.
 
 ## License
 
-MIT
+MIT © [mowgli](https://github.com/mowgli)

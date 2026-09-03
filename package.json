@@ -2,39 +2,74 @@
   "name": "react-native-figma-blur",
   "version": "0.1.0",
   "description": "Figma-identical blur and Liquid Glass for React Native. One sigma model, two GPU backends, zero jank.",
+  "license": "MIT",
+  "author": "mowgli <mowglijuddi@gmail.com>",
+  "homepage": "https://github.com/mowgli/react-native-figma-blur#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mowgli/react-native-figma-blur.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mowgli/react-native-figma-blur/issues"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "blur",
+    "backdrop-filter",
+    "backdrop-blur",
+    "liquid-glass",
+    "glassmorphism",
+    "frosted-glass",
+    "figma",
+    "fabric",
+    "new-architecture",
+    "turbomodule",
+    "renderEffect",
+    "expo"
+  ],
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
   "types": "lib/typescript/index.d.ts",
   "react-native": "src/index.tsx",
   "source": "src/index.tsx",
+  "exports": {
+    ".": {
+      "types": "./lib/typescript/index.d.ts",
+      "react-native": "./src/index.tsx",
+      "import": "./lib/module/index.js",
+      "require": "./lib/commonjs/index.js",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "src",
     "lib",
     "android",
     "ios",
-    "cpp",
     "*.podspec",
+    "!android/build",
+    "!android/.gradle",
+    "!android/.cxx",
+    "!android/generated",
+    "!ios/build",
     "!**/__tests__",
     "!**/.*"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "clean": "del-cli lib android/build example/android/build example/ios/build",
     "prepare": "bob build",
-    "parity": "node parity/measure.mjs"
+    "parity": "node parity/measure.mjs",
+    "prepack": "bob build",
+    "verify": "npm run typecheck && npm test && npm run parity"
   },
-  "keywords": [
-    "react-native",
-    "blur",
-    "backdrop-filter",
-    "liquid-glass",
-    "glassmorphism",
-    "figma",
-    "fabric",
-    "new-architecture"
-  ],
-  "license": "MIT",
   "peerDependencies": {
     "react": "*",
     "react-native": ">=0.76.0"
@@ -86,5 +121,9 @@
         "FigmaBlurView": "FigmaBlurViewComponentView"
       }
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

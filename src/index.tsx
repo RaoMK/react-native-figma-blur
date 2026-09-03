@@ -14,11 +14,5 @@ export {
   downscaledSigma,
 } from './core/blurMath';
 
-import NativeFigmaBlur, { type Capabilities } from './specs/NativeFigmaBlur';
-
-export type { Capabilities };
-
-/** What the blur backend on this device can actually do. Useful in bug reports. */
-export function getCapabilities(): Capabilities {
-  return NativeFigmaBlur.getCapabilities();
-}
+export { getCapabilities } from './core/capabilities';
+export type { Capabilities } from './specs/NativeFigmaBlur';

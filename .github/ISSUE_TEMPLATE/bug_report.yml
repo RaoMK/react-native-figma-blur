@@ -1,0 +1,64 @@
+name: Bug report
+description: Something renders wrong, crashes, or does not match across platforms
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The capabilities output below narrows most
+        problems in one step, so please do not skip it.
+
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: getCapabilities() output
+      description: |
+        ```tsx
+        import { getCapabilities } from 'react-native-figma-blur';
+        console.log(getCapabilities());
+        ```
+      render: json
+      placeholder: '{ "engine": "ios.backdropLayer", "hasExactRadius": true, ... }'
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest snippet that shows it. A full app is rarely needed.
+      render: tsx
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and device
+      placeholder: iOS 26.5, iPhone 17 Pro simulator / Android API 34, Pixel 7 (physical)
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: react-native-figma-blur and React Native versions
+      placeholder: 0.1.0 / 0.87.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: |
+        If this is a rendering difference, both platforms side by side helps a
+        lot. If you have measured it with `npm run parity`, include the numbers.

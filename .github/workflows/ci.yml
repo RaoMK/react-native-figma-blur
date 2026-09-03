@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test, parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # Asserts the blur model's constants are identical in TypeScript, the iOS
+      # header and the Kotlin object. Needs no device.
+      - run: npm run parity
+
+  build-library:
+    name: Build package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run prepare
+      - name: Check the tarball has no build output in it
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.txt
+          if grep -qE 'android/build/|ios/build/|\.gradle/' /tmp/pack.txt; then
+            echo "::error::Build output is being published"
+            exit 1
+          fi
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npm run prepare
+      - run: npm ci
+        working-directory: example
+      - run: ./gradlew :react-native-figma-blur:assembleDebug --no-daemon
+        working-directory: example/android
+
+  ios:
+    name: iOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run prepare
+      - run: npm ci
+        working-directory: example
+      - run: pod install
+        working-directory: example/ios
+      - name: Build for simulator
+        working-directory: example/ios
+        run: |
+          xcodebuild \
+            -workspace FigmaBlurExample.xcworkspace \
+            -scheme FigmaBlurExample \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            build CODE_SIGNING_ALLOWED=NO

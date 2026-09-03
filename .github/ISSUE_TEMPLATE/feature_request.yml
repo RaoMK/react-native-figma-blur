@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest something this should be able to do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [roadmap](../../blob/main/ROADMAP.md) first — it lists
+        what is planned and what is deliberately out of scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to build
+      description: |
+        The design or interaction you are after, rather than the API you have in
+        mind. It often turns out there is a simpler way in.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to look like
+      render: tsx
+
+  - type: textarea
+    id: platforms
+    attributes:
+      label: Platform notes
+      description: |
+        Does the platform provide this natively on iOS, Android, or both? If only
+        one, is a synthesised equivalent acceptable on the other?

@@ -31,15 +31,39 @@ jobs:
       - name: Verify before publishing
         run: npm run verify
 
-      - name: Refuse to publish if the tag and package.json disagree
+      - name: Resolve the version to publish
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
           PKG=$(node -p "require('./package.json').version")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::tag v$TAG does not match package.json $PKG"
+
+          # workflow_dispatch runs from a branch, so GITHUB_REF_NAME is "main"
+          # rather than a tag. Only compare when we were actually triggered by a
+          # tag; a manual run publishes whatever package.json says.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            if [ "$TAG" != "$PKG" ]; then
+              echo "::error::tag v$TAG does not match package.json $PKG"
+              exit 1
+            fi
+            echo "triggered by tag v$TAG"
+          else
+            echo "manual run from $GITHUB_REF_NAME"
+          fi
+
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          echo "publishing $PKG"
+
+      - name: Stop if this version is already on npm
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER="${{ steps.version.outputs.version }}"
+          # A published version can never be reused, so failing here with a clear
+          # message beats letting npm reject it with E403 halfway through.
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "::error::$PKG@$VER is already published — bump the version first"
             exit 1
           fi
-          echo "publishing $PKG"
+          echo "$PKG@$VER is unpublished, continuing"
 
       - name: Publish
         run: npm publish --provenance --access public

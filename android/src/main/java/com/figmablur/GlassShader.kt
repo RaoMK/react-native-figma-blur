@@ -20,7 +20,10 @@ uniform float  uRadius;
 uniform float  uBand;
 uniform float  uRefraction;
 uniform float  uSpecular;
-uniform half4  uTint;
+// `layout(color)` is required for setColorUniform: it tells Skia this uniform
+// is a colour and must be converted into the shader's working colour space.
+// Without it setColorUniform throws rather than silently mis-rendering.
+layout(color) uniform half4 uTint;
 
 // Signed distance to a rounded rectangle: negative inside, zero on the edge.
 // Everything below is driven by this one number, which is why the material stays

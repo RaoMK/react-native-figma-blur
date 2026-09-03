@@ -14,6 +14,7 @@ import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
 import android.view.View
+import android.view.ViewGroup
 import androidx.annotation.RequiresApi
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -149,27 +150,83 @@ class HardwareBackdrop {
     val originY = (location[1] - rootLocation[1] - capturePad).toFloat()
 
     node.setPosition(0, 0, scaledW, scaledH)
-
-    // Exclude the host from its own backdrop, or the blur is fed its previous
-    // output and smears a little more every frame.
-    //
-    // This has to be done with visibility rather than with a "skip drawing"
-    // flag. On a hardware canvas ViewGroup.drawChild never calls a child's
-    // draw(Canvas) — it emits drawRenderNode(child), and that reference resolves
-    // at composite time, by which point the host's node holds the blur again. An
-    // INVISIBLE child is skipped during dispatchDraw itself, so nothing
-    // referring to the host is ever recorded.
-    val restoreVisibility = host.visibility
-    host.visibility = View.INVISIBLE
-
     val canvas = node.beginRecording(scaledW, scaledH)
     try {
       canvas.scale(1f / downsample, 1f / downsample)
       canvas.translate(-originX, -originY)
-      root.draw(canvas)
+      drawWhatIsBehind(host, root, canvas)
     } finally {
       node.endRecording()
-      host.visibility = restoreVisibility
+    }
+  }
+
+  /**
+   * Record everything painted before the host, without ever touching the host's
+   * own branch of the tree.
+   *
+   * The obvious implementation — `root.draw(canvas)` with the host hidden — cannot
+   * work, and the failure is spectacular rather than subtle. RenderNodes reference
+   * each other rather than copying: recording the root emits drawRenderNode for
+   * each child, so the capture ends up pointing at the ScrollView's node, which
+   * still points at the host's node, which points back at this one. HWUI then
+   * recurses through prepareTree until the stack overflows. Hiding the host does
+   * not help, because the ancestor's display list was recorded while it was still
+   * visible and nothing re-records it.
+   *
+   * So instead: walk the chain from the root down to the host and, at each level,
+   * draw the background and only those siblings that paint before the branch the
+   * host lives in. The host's branch is never entered, so nothing in the capture
+   * can refer back to it, and the cycle cannot form.
+   *
+   * That is also the correct definition of a backdrop — what is behind you is what
+   * was painted before you — and the siblings that do get drawn still go through
+   * their own RenderNodes, so their display lists are reused rather than rebuilt.
+   */
+  private fun drawWhatIsBehind(host: View, root: View, canvas: Canvas) {
+    val chain = ArrayList<View>(8)
+    var view: View = host
+    chain.add(view)
+    while (view !== root) {
+      val parent = view.parent as? View ?: break
+      chain.add(parent)
+      view = parent
+    }
+    chain.reverse()
+
+    // Position of the current level's own origin, in root coordinates.
+    var accX = 0f
+    var accY = 0f
+
+    for (i in 0 until chain.size - 1) {
+      val parent = chain[i] as? ViewGroup ?: continue
+      val branch = chain[i + 1]
+
+      parent.background?.let { background ->
+        canvas.save()
+        canvas.translate(accX, accY)
+        background.draw(canvas)
+        canvas.restore()
+      }
+
+      // Children sit inside the parent's scrolled content box.
+      val childOriginX = accX - parent.scrollX
+      val childOriginY = accY - parent.scrollY
+
+      for (j in 0 until parent.childCount) {
+        val child = parent.getChildAt(j)
+        if (child === branch) break
+        if (child.visibility != View.VISIBLE) continue
+        canvas.save()
+        canvas.translate(
+          childOriginX + child.left + child.translationX,
+          childOriginY + child.top + child.translationY,
+        )
+        child.draw(canvas)
+        canvas.restore()
+      }
+
+      accX = childOriginX + branch.left + branch.translationX
+      accY = childOriginY + branch.top + branch.translationY
     }
   }
 

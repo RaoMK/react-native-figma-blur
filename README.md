@@ -194,11 +194,12 @@ or pixel area. The blur itself runs on a downscaled copy, so `blurRadius={200}`
 costs about what `blurRadius={20}` costs. A simplified backdrop beats a smaller
 radius every time.
 
-**Careful with lists.** One blur per cell in a `FlatList` is fine on iOS, where
-the compositor does the work, but scales quadratically on Android — each cell's
-capture redraws the cells before it. Put the blur on the chrome *over* the list
-instead, or use `blurRadius={0}` with a `tintColor` for cells. The example app
-has an A/B rig on its **bench** screen and `npm run bench:android` measures it.
+**Lists.** Measured on a real device with ten blurred rows: a blur on every row
+is 20.8% janky, while **one** blur over the whole list is 0.62% — as smooth as no
+blur at all, despite overlapping every row. The GPU sits at 5–6 ms either way, so
+the cost is per blur *view*, not per blurred pixel. Put the blur on the chrome
+over the list, or use `blurRadius={0}` with a `tintColor` for cells. The
+example's **bench** screen is an A/B rig; `npm run bench:android` measures it.
 
 [Performance and size](docs/performance.md) has the cost model, the list
 guidance, and how to measure on your own hardware.

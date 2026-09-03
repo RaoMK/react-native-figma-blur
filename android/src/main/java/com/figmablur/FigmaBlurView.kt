@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Build
 import android.view.View
@@ -96,6 +97,7 @@ class FigmaBlurView(context: Context) : ReactViewGroup(context) {
   private var blurRoot: View? = null
 
   private val cornerPath = Path()
+  private val visibleRect = Rect()
   private val viewBounds = RectF()
   private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -205,7 +207,25 @@ class FigmaBlurView(context: Context) : ReactViewGroup(context) {
     if (!isBackdropActive()) return
     val hw = hardware ?: return
     val root = blurRoot ?: return
+
+    // Skip anything the user cannot see.
+    //
+    // A list keeps cells attached beyond the viewport, and an attached blur view
+    // still receives a pre-draw callback every frame. Capturing a backdrop for a
+    // row that is scrolled off screen is work nobody will ever look at, and in a
+    // long list it is most of the work.
+    if (!isShown || !getGlobalVisibleRect(visibleRect)) return
+
     recomputePlanIfNeeded()
+
+    // Each view records its own region. Sharing one screen-sized recording
+    // between every blur view was prototyped and is not obviously a win: a
+    // RenderEffect forces each blur node into an offscreen layer, and
+    // rasterising that traverses the display list it references, at a cost that
+    // follows the operation count rather than the clip — so each view may end up
+    // walking the whole screen instead of its own region. An attempt to measure
+    // that was confounded by thermal drift and settled nothing either way. See
+    // ROADMAP before trying again, and interleave the two builds.
     hw.capture(this, root, plan.downsample, capturePad)
   }
 

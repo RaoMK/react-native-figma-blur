@@ -4,6 +4,62 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-09-03
+
+Android capture efficiency, and the first measurements from real hardware.
+
+### Changed
+
+- **Backdrop captures are culled against their own rect.** A capture only needs
+  content that can reach the region it covers, so siblings that do not overlap
+  the blurred view are no longer redrawn. In a list this removes a quadratic
+  term: the cell at index `j` was redrawing every cell before it, `k² / 2`
+  re-records per frame across `k` visible blurred cells, for cells that do not
+  overlap and contribute nothing to each other's backdrop.
+- **Views scrolled off screen no longer capture.** A list keeps cells attached
+  beyond the viewport and each still received a pre-draw callback every frame.
+
+Both changes remove work that provably cannot affect the output, and both were
+verified as such rather than assumed: the example's bench and gallery screens
+were rendered before and after and diffed across 2.1M pixels, maximum channel
+difference **0**. Neither is claimed as a measured speedup in isolation.
+
+- Removed a per-frame allocation from the capture path.
+
+### Added
+
+- A **bench** screen in the example — the same list rendered three ways (a blur
+  per cell, tint only, one blur over the list) so a difference is attributable to
+  the blur and nothing else.
+- `npm run bench:android` (`scripts/bench-android.sh`) to scroll and report frame
+  timings.
+- [docs/performance.md](docs/performance.md) — list guidance and the cost model.
+- [docs/comparison.md](docs/comparison.md) — versus `expo-blur` and
+  `@react-native-community/blur`, written from their published source.
+
+### Measured
+
+On an iQOO I2207 (Android 15, 1080×2400 @ 440dpi), ten blurred rows, cool device:
+
+| mode | janky | 50th | GPU 50th |
+|---|---|---|---|
+| a blur on every row | 20.8% | 25 ms | 6 ms |
+| one blur over the list | 0.62% | 12 ms | 5 ms |
+| tint only | 0.87% | 10 ms | 6 ms |
+
+The GPU is not the bottleneck in any mode. The cost is per blur *view* — roughly
+1.5 ms of UI thread each — not per blurred pixel, so one blur over a list is
+effectively free while ten are not.
+
+### Known limitations
+
+- A shared per-frame recording, which would let every blur view sample one
+  capture, remains unresolved. A prototype exists in the git history; measuring
+  it was confounded by the device warming from 25 ms to 48 ms on identical code,
+  so it settled nothing. See [ROADMAP.md](ROADMAP.md).
+
+[0.1.1]: https://github.com/RaoMK/react-native-figma-blur/releases/tag/v0.1.1
+
 ## [0.1.0] — 2026-09-03
 
 First release.

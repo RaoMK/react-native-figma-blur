@@ -1,6 +1,6 @@
 {
   "name": "react-native-figma-blur",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Figma-identical blur and Liquid Glass for React Native. One sigma model, two GPU backends, zero jank.",
   "license": "MIT",
   "author": "RaoMK <mowglijuddi@gmail.com>",

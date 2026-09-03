@@ -33,6 +33,17 @@ They should be checked by the same automated path as everything else.
 **Better `getCapabilities()`** *(help wanted)* — it should report the effective
 sigma and downsample factor actually in use, not just which backend is live.
 
+**A shared backdrop recording** — every blur view under a root records its own
+backdrop each frame, and on a real device that is roughly 1.5ms of UI thread
+each, fixed, regardless of what is behind it. Recording once per frame and
+letting each view sample its own region is the obvious fix, and it is not
+obviously a win: a RenderEffect forces each blur node into an offscreen layer,
+and rasterising that traverses the referenced display list at a cost following
+its operation count rather than its clip. A prototype exists in the git history;
+the attempt to measure it was confounded by the device warming from 25ms to 48ms
+on identical code, so it settled nothing. Redo it **interleaved** — alternate
+builds several times each — before drawing any conclusion.
+
 ## 0.3 — reach
 
 **Expo config plugin** *(help wanted)* — installable in a managed workflow

@@ -175,7 +175,12 @@ class HardwareBackdrop {
     try {
       canvas.scale(1f / downsample, 1f / downsample)
       canvas.translate(-originX, -originY)
-      drawWhatIsBehind(host, root, canvas)
+      // The region actually being captured, in root coordinates. Anything that
+      // falls outside it cannot influence the result and is skipped.
+      drawWhatIsBehind(
+        host, root, canvas,
+        originX, originY, originX + capW, originY + capH,
+      )
     } finally {
       node.endRecording()
     }
@@ -203,7 +208,15 @@ class HardwareBackdrop {
    * was painted before you — and the siblings that do get drawn still go through
    * their own RenderNodes, so their display lists are reused rather than rebuilt.
    */
-  private fun drawWhatIsBehind(host: View, root: View, canvas: Canvas) {
+  private fun drawWhatIsBehind(
+    host: View,
+    root: View,
+    canvas: Canvas,
+    clipLeft: Float,
+    clipTop: Float,
+    clipRight: Float,
+    clipBottom: Float,
+  ) {
     val chain = ancestorChain
     chain.clear()
     var view: View = host
@@ -238,11 +251,32 @@ class HardwareBackdrop {
         val child = parent.getChildAt(j)
         if (child === branch) break
         if (child.visibility != View.VISIBLE) continue
+
+        val left = childOriginX + child.left + child.translationX
+        val top = childOriginY + child.top + child.translationY
+        val right = left + child.width
+        val bottom = top + child.height
+
+        // Cull siblings that cannot reach the captured region.
+        //
+        // This is what keeps a list of blurred cells affordable. Without it,
+        // the cell at index j redraws every cell before it, so k visible
+        // blurred cells cost about k^2/2 re-records per frame — even though
+        // those cells do not overlap and contribute nothing to each other's
+        // backdrop. Skipping them is exact, not an approximation: content
+        // outside the capture rect cannot affect a single pixel inside it.
+        //
+        // The canvas clip would reject these during rasterisation anyway, but
+        // the expensive part is the display-list re-record that happens first,
+        // and only an explicit test avoids that.
+        if (right <= clipLeft || left >= clipRight ||
+          bottom <= clipTop || top >= clipBottom
+        ) {
+          continue
+        }
+
         canvas.save()
-        canvas.translate(
-          childOriginX + child.left + child.translationX,
-          childOriginY + child.top + child.translationY,
-        )
+        canvas.translate(left, top)
         child.draw(canvas)
         canvas.restore()
       }

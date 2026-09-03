@@ -67,64 +67,80 @@ The draw and capture paths allocate nothing per frame. Paints, the corner path,
 the location buffers and the ancestor-chain list are all fields, reused across
 frames. The noise tile is generated once and cached.
 
-## Lists: the case that bites
+## Lists
 
-The most common way to get into trouble is one blur per cell in a `FlatList`.
-The two platforms behave completely differently here, so this is worth reading
-before you build it.
+One blur per cell in a `FlatList` is the case most likely to go wrong.
 
-### iOS is fine
+### Measured, on a real device
 
-Each blur is a `CABackdropLayer` and the compositor does the work. No capture, no
-per-frame CPU. Cost is GPU fill rate, roughly linear in the number of visible
-blurred cells. A list of blurred rows is viable.
+An iQOO I2207 (Android 15, 1080×2400 @ 440dpi), ten blurred rows visible,
+scrolled under `scripts/bench-android.sh`. All three modes back to back on a cool
+device:
 
-### Android scales quadratically
+| mode | janky | 50th | 90th | GPU 50th |
+|---|---|---|---|---|
+| a blur on every row | 20.8% | 25 ms | 57 ms | 6 ms |
+| one blur over the list | 0.62% | 12 ms | 17 ms | 5 ms |
+| tint only, no blur | 0.87% | 10 ms | 11 ms | 6 ms |
 
-Every attached blur view captures on **every frame**, and the capture draws the
-siblings painted before it. Inside a list's content container, those siblings are
-the other cells. So a cell at index `j` redraws `j` cells, and across `k` visible
-blurred cells you get:
+Two things this settles:
 
-```
-≈ k² / 2  sibling re-records per frame
-```
+**The GPU is not the bottleneck.** 5–6 ms in every mode, including the one with
+no blur at all. `downsampleFactor` reduces GPU work and will not help here.
 
-At 8 visible blurred rows that is ~28 re-records per frame, on top of 8 RenderNode
-recordings and 8 blur passes.
+**One blur is free; ten are not.** A single blur over the whole list is
+indistinguishable from no blur, even though it overlaps every row and genuinely
+redraws them. The cost is per *blur view*, not per blurred pixel — roughly
+1.5 ms of UI thread each, and swapping an expensive layer-blurred backdrop for a
+flat colour barely moved the median, so it is fixed overhead rather than content.
 
-Two things soften it, and neither makes it the right shape: virtualization means
-`k` is the number of **windowed** cells rather than your dataset length, and each
-sibling redraw re-records only that cell's own root — its children come back by
-RenderNode reference, which is cheap.
+### What the library does about it
 
-**`downsampleFactor` does not help here.** It reduces GPU blur cost, and the
-bottleneck is CPU re-recording.
+**Siblings outside the capture region are skipped.** A capture only needs content
+that can reach its own rect, so cells that do not overlap the one being blurred
+are not redrawn. Without this the cell at index `j` redraws every cell before it,
+which is `k² / 2` re-records per frame across `k` visible blurred cells.
 
-### What to do instead
+The culling is exact rather than an approximation — content outside the capture
+rect cannot influence a pixel inside it — and that was verified rather than
+assumed: the bench and gallery screens were rendered before and after and diffed
+across 2.1M pixels, maximum channel difference **0**.
+
+**Off-screen cells do not capture.** A list keeps cells attached beyond the
+viewport and each still received a pre-draw callback.
+
+Both remove work that provably could not affect the output. Neither has been
+measured as a speedup in isolation, because the device warms over a benchmarking
+session and drifts far more than the effect being measured — see the note below.
+
+### If you need more
 
 | instead of | do |
 |---|---|
-| A blur on every cell | One blur on the **chrome over** the list — sticky header, tab bar, floating action bar. One capture regardless of list length, and it is what the material is for. |
-| A blur behind each card | `blurRadius={0}` with a `tintColor`. No capture at all, and at card size over a busy background the difference is usually invisible. |
-| Blurring during the scroll | `enabled={false}` on scroll begin, `true` on momentum end. Skipping the capture is far cheaper than unmounting the view. |
+| A blur on every cell | One blur on the **chrome over** the list. Measured at 0.62% jank above — effectively free. |
+| A blur behind each card | `blurRadius={0}` with a `tintColor`. No capture at all. |
+| Blurring during the scroll | `enabled={false}` on scroll begin, `true` on momentum end. |
 
-If you genuinely need per-cell blur on Android, keep the simultaneously-visible
-count in single digits and measure on your lowest-end target.
+### Benchmarking honestly
 
-### Measure it yourself
-
-The example app ships an A/B rig — the **bench** screen renders the same list
-three ways (`blur cells` / `tint only` / `chrome`) so the difference is
-attributable to the blur and nothing else. Flip mode on screen, then:
+The example ships an A/B rig on its **bench** screen — the same list rendered
+three ways so the difference is attributable to the blur and nothing else.
 
 ```sh
 npm run bench:android              # the example app
 npm run bench:android -- com.yourapp 12
 ```
 
-It scrolls, then reports frame counts, jank and percentiles. Compare **modes on
-one device**; do not compare devices.
+Two warnings, both learned the hard way here:
+
+- **Emulators are useless for this.** One reported 24 frames at a 1100 ms median
+  with a 4950 ms GPU percentile, on a static screen.
+- **Devices drift as they warm.** Identical code measured 25 ms cold and 48 ms
+  after a session of benchmarking, with the SoC at 60 °C — a larger difference
+  than most changes you would be trying to detect. Repeated runs at one
+  temperature are stable to about ±1%, so the fix is to **interleave**: alternate
+  the two builds, several times each, so drift lands as noise in both arms rather
+  than as a result in one.
 
 ## Measuring it on your hardware
 

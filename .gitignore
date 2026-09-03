@@ -1,0 +1,12 @@
+node_modules/
+lib/
+android/build/
+android/.gradle/
+android/.cxx/
+ios/build/
+example/ios/Pods/
+example/android/build/
+example/android/app/build/
+.DS_Store
+*.log
+parity/out/

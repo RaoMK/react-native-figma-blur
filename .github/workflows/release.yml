@@ -1,0 +1,50 @@
+name: Release
+
+# Publishes to npm when a v* tag is pushed, e.g.
+#   npm version patch && git push --follow-tags
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required for npm Trusted Publishing (OIDC). Harmless if you use a token
+      # instead, so it is left on to keep that migration a one-line change.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # This is what writes the .npmrc that reads NODE_AUTH_TOKEN. Without
+          # it, the env var below is ignored and the publish fails as anonymous.
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Verify before publishing
+        run: npm run verify
+
+      - name: Refuse to publish if the tag and package.json disagree
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match package.json $PKG"
+            exit 1
+          fi
+          echo "publishing $PKG"
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          # The secret is named NPM_TOKEN; the variable npm reads is
+          # NODE_AUTH_TOKEN. They are different names on purpose and both are
+          # required — setting only NPM_TOKEN publishes as an anonymous user.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -84,6 +84,27 @@ Anything on the [roadmap](ROADMAP.md) marked **help wanted**. Beyond that:
 - Documentation. If something in the README confused you, that is a bug in the
   README, and you are the best-placed person to fix it.
 
+## Releasing
+
+Maintainers only.
+
+```bash
+npm version patch          # or minor / major — updates package.json and tags
+git push --follow-tags
+```
+
+The `Release` workflow takes it from there: it runs `npm run verify`, refuses to
+publish if the tag and `package.json` disagree, and publishes with provenance.
+
+It needs one repository secret, **`NPM_TOKEN`**, set to an npm **Automation**
+token (npmjs.com → Access Tokens → Generate → Automation). A classic Publish
+token fails once 2FA is enabled on the account.
+
+Note the two names are different and both matter: the secret is `NPM_TOKEN`, but
+the variable npm actually reads is `NODE_AUTH_TOKEN`, which
+`actions/setup-node` wires up via a generated `.npmrc`. Setting only `NPM_TOKEN`
+as an env var publishes as an anonymous user and fails.
+
 ## Reporting a bug
 
 Please include the output of `getCapabilities()` — it names which of the several

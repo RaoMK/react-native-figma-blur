@@ -65,9 +65,14 @@ Android has no equivalent, so it is synthesised in AGSL — [`GlassShader.kt`](a
 The material itself is calibrated against iOS, not guessed. Sampling the same
 card over the same backdrop on both platforms:
 
-| over `#34C759` | iOS | Android |
+| light, over `#34C759` | iOS | Android |
 |---|---|---|
 | `regular` | rgb(159,248,179) · sat 0.36 · lum 224 | rgb(160,244,168) · sat 0.34 · lum 220 |
+| `clear` | rgb(21,225,216) · sat 0.91 · lum 181 | rgb(16,218,210) · sat 0.93 · lum 175 |
+
+| dark, over `#34C759` | iOS | Android |
+|---|---|---|
+| `regular` | rgb(5,91,25) · sat 0.95 · lum 68 | rgb(6,91,7) · sat 0.93 · lum 67 |
 | `clear` | rgb(21,225,216) · sat 0.91 · lum 181 | rgb(16,218,210) · sat 0.93 · lum 175 |
 
 The model that fits is a gamma lift plus a vibrancy pass, not the translucent
@@ -76,10 +81,19 @@ desaturates well past what Apple's material does, and pushing it far enough
 drives the darkest channel to zero. A power curve lifts darks hard and lights
 barely, which is why glass reads as lit rather than milky.
 
-Two caveats. The constants are calibrated for light backdrops; dark mode is not
-yet fitted. And iOS's glass blurs by an amount `UIGlassEffect` does not expose,
-so the Android blur under the material is set by `blurRadius` and can differ
-slightly in softness even where the colour matches.
+Dark mode is a separate fit, because the material inverts rather than dimming:
+`regular` halves luminance while *raising* saturation, so the same power curve
+runs with an exponent above 1. Android follows the night-mode configuration,
+which is the same signal iOS's glass follows — the system appearance, not how
+bright the backdrop happens to be.
+
+`clear` uses one set of constants for both appearances, because iOS does too:
+measured in dark mode it returns the same rgb(21,225,216) it produces in light.
+Branching there would invent a difference that is not in the platform.
+
+One caveat remains: iOS's glass blurs by an amount `UIGlassEffect` does not
+expose, so the Android blur under the material comes from `blurRadius` and can
+differ slightly in softness even where the colour matches.
 
 `glassInteractive` is accepted and ignored on Android rather than throwing, so shared JSX renders on both platforms.
 

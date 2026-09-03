@@ -117,7 +117,26 @@ half4 main(float2 coord) {
    * sampling procedure is the point, not the constants.
    */
   const val LIFT_REGULAR = 0.2966
-  const val LIFT_CLEAR = 0.635
   const val VIBRANCY_REGULAR = 1.37
+
+  /**
+   * `regular` in dark mode, measured the same way.
+   *
+   * The material inverts rather than merely dimming: over the same #34C759 band
+   * iOS takes rgb(52,199,89) -> rgb(5,91,25), halving luminance (160 -> 68)
+   * while *raising* saturation (0.74 -> 0.95). So the exponent crosses 1 — the
+   * same power curve, now darkening — and the vibrancy pass drops slightly below
+   * 1 to pull the extremes back toward the midtone.
+   */
+  const val LIFT_REGULAR_DARK = 4.145
+  const val VIBRANCY_REGULAR_DARK = 0.93
+
+  /**
+   * `clear` uses one set of constants for both appearances, because iOS does
+   * too: measured in dark mode it returns rgb(21,225,216) over #00C7BE, the same
+   * value it produces in light mode. The variant is appearance-independent, and
+   * branching on the trait would introduce a difference that is not there.
+   */
+  const val LIFT_CLEAR = 0.635
   const val VIBRANCY_CLEAR = 1.0
 }

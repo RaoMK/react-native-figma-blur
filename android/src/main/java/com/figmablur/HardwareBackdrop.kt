@@ -57,6 +57,7 @@ class HardwareBackdrop {
     bounds: RectF,
     capturePad: Int,
     density: Float,
+    isDarkMode: Boolean,
   ) {
     var effect: RenderEffect? =
       if (plan.radiusPx > 0f) {
@@ -73,7 +74,7 @@ class HardwareBackdrop {
     }
 
     val glass = glassEffect(glassVariant, glassTintColor, cornerRadiusPx, bounds, capturePad,
-                            density, plan.downsample)
+                            density, plan.downsample, isDarkMode)
     if (glass != null) {
       effect = if (effect != null) RenderEffect.createChainEffect(glass, effect) else glass
     }
@@ -89,6 +90,7 @@ class HardwareBackdrop {
     capturePad: Int,
     density: Float,
     downsample: Int,
+    isDarkMode: Boolean,
   ): RenderEffect? {
     if (!HAS_SHADER_GLASS || variant == "none" || bounds.isEmpty) return null
 
@@ -110,14 +112,20 @@ class HardwareBackdrop {
          else GlassShader.SPECULAR_REGULAR).toFloat(),
       )
       val isClear = variant == "clear"
-      setFloatUniform(
-        "uLift",
-        (if (isClear) GlassShader.LIFT_CLEAR else GlassShader.LIFT_REGULAR).toFloat(),
-      )
-      setFloatUniform(
-        "uVibrancy",
-        (if (isClear) GlassShader.VIBRANCY_CLEAR else GlassShader.VIBRANCY_REGULAR).toFloat(),
-      )
+      // `clear` deliberately ignores isDarkMode: iOS renders it identically in
+      // both appearances, so branching here would invent a difference.
+      val lift = when {
+        isClear -> GlassShader.LIFT_CLEAR
+        isDarkMode -> GlassShader.LIFT_REGULAR_DARK
+        else -> GlassShader.LIFT_REGULAR
+      }
+      val vibrancy = when {
+        isClear -> GlassShader.VIBRANCY_CLEAR
+        isDarkMode -> GlassShader.VIBRANCY_REGULAR_DARK
+        else -> GlassShader.VIBRANCY_REGULAR
+      }
+      setFloatUniform("uLift", lift.toFloat())
+      setFloatUniform("uVibrancy", vibrancy.toFloat())
       setColorUniform("uTint", tintColor)
     }
     return RenderEffect.createRuntimeShaderEffect(shader, "backdrop")

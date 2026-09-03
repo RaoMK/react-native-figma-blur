@@ -2,6 +2,7 @@ package com.figmablur
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -140,6 +141,20 @@ class FigmaBlurView(context: Context) : ReactViewGroup(context) {
     invalidateBlurPlan()
   }
 
+  /**
+   * iOS's glass follows the system appearance rather than the backdrop's
+   * brightness, so this reads the same signal: the night-mode configuration.
+   */
+  private fun isDarkMode(): Boolean =
+    (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+      Configuration.UI_MODE_NIGHT_YES
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    // Switching appearance changes the material, not just the colours around it.
+    invalidateBlurPlan()
+  }
+
   private fun rebuildCornerPath() {
     cornerPath.reset()
     if (viewBounds.isEmpty) return
@@ -179,6 +194,7 @@ class FigmaBlurView(context: Context) : ReactViewGroup(context) {
         bounds = viewBounds,
         capturePad = capturePad,
         density = density,
+        isDarkMode = isDarkMode(),
       )
     }
   }

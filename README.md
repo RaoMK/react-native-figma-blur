@@ -4,6 +4,22 @@ Blur and Liquid Glass for React Native that render **identically on iOS and Andr
 
 New Architecture only. No legacy bridge path.
 
+| iOS 26 · iPhone 17 Pro | Android 16 · Pixel 6 |
+|---|---|
+| ![Gallery on iOS](docs/screenshots/gallery-ios.png) | ![Gallery on Android](docs/screenshots/gallery-android.png) |
+
+Same JSX, same numbers, no per-platform branches. Materials, Liquid Glass, layer
+blur and per-corner radii, over a mesh gradient the library builds out of itself.
+
+### The blur scale
+
+`blurRadius` is the number from Figma's inspector; sigma is what it resolves to.
+The grid behind the tiles is there to be destroyed — it is what makes one step
+distinguishable from the next.
+
+| iOS | Android |
+|---|---|
+| ![Blur scale on iOS](docs/screenshots/scale-ios.png) | ![Blur scale on Android](docs/screenshots/scale-android.png) |
 ```tsx
 import { FigmaBlurView, GlassView } from 'react-native-figma-blur';
 
@@ -183,6 +199,12 @@ cd example && npm install
 cd ios && pod install && cd ..
 npm run ios      # or: npm run android
 ```
+
+The example carries three screens, switchable from the picker in the corner:
+**gallery** and **scale** are the plates above, and **parity** is the measurement
+fixture — deliberately harsh, with hard step edges, because a soft backdrop hides
+a wrong sigma. To reproduce a documentation plate, set `INITIAL` in `App.tsx` and
+turn `SHOW_PICKER` off.
 
 The saturation switch on screen toggles between `1.0` (Figma) and `1.8` (roughly
 what iOS system materials do), which is the quickest way to see why a stock blur

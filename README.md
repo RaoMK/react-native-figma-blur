@@ -233,7 +233,7 @@ A build-time switch to remove the private symbols entirely is on the
 ## Running the example
 
 ```bash
-git clone https://github.com/mowgli/react-native-figma-blur
+git clone https://github.com/RaoMK/react-native-figma-blur
 cd react-native-figma-blur
 npm install && npm run prepare
 
@@ -255,4 +255,4 @@ and both looked entirely plausible by eye.
 
 ## License
 
-MIT © [mowgli](https://github.com/mowgli)
+MIT © [RaoMK](https://github.com/RaoMK)

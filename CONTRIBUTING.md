@@ -19,7 +19,7 @@ Everything else below is ordinary.
 ## Getting set up
 
 ```bash
-git clone https://github.com/mowgli/react-native-figma-blur
+git clone https://github.com/RaoMK/react-native-figma-blur
 cd react-native-figma-blur
 npm install
 npm run prepare          # build the library — the example consumes the output

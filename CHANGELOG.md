@@ -50,4 +50,4 @@ appearances. Full numbers in [docs/parity.md](docs/parity.md).
 
 See the [roadmap](ROADMAP.md).
 
-[0.1.0]: https://github.com/mowgli/react-native-figma-blur/releases/tag/v0.1.0
+[0.1.0]: https://github.com/RaoMK/react-native-figma-blur/releases/tag/v0.1.0

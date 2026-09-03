@@ -6,12 +6,12 @@ Pod::Spec.new do |s|
   s.name         = "FigmaBlur"
   s.version      = package["version"]
   s.summary      = package["description"]
-  s.homepage     = "https://github.com/mowgli/react-native-figma-blur"
+  s.homepage     = "https://github.com/RaoMK/react-native-figma-blur"
   s.license      = package["license"]
-  s.authors      = { "mowgli" => "mowglijuddi@gmail.com" }
+  s.authors      = { "RaoMK" => "mowglijuddi@gmail.com" }
 
   s.platforms    = { :ios => "15.1" }
-  s.source       = { :git => "https://github.com/mowgli/react-native-figma-blur.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/RaoMK/react-native-figma-blur.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,cpp}"
 

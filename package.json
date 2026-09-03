@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "Figma-identical blur and Liquid Glass for React Native. One sigma model, two GPU backends, zero jank.",
   "license": "MIT",
-  "author": "mowgli <mowglijuddi@gmail.com>",
-  "homepage": "https://github.com/mowgli/react-native-figma-blur#readme",
+  "author": "RaoMK <mowglijuddi@gmail.com>",
+  "homepage": "https://github.com/RaoMK/react-native-figma-blur#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mowgli/react-native-figma-blur.git"
+    "url": "https://github.com/RaoMK/react-native-figma-blur.git"
   },
   "bugs": {
-    "url": "https://github.com/mowgli/react-native-figma-blur/issues"
+    "url": "https://github.com/RaoMK/react-native-figma-blur/issues"
   },
   "keywords": [
     "react-native",

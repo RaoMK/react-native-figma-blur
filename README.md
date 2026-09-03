@@ -142,15 +142,60 @@ last step. [How it works](docs/how-it-works.md) has the detail.
 
 You can run the check yourself: [`npm run parity`](docs/parity.md).
 
+## How it compares
+
+Checked by reading each package's published source — versions inspected are
+expo-blur 57.0.2 and @react-native-community/blur 4.4.1.
+
+| | this | @react-native-community/blur | expo-blur |
+|---|---|---|---|
+| You specify | Figma blur value | UIKit preset + `blurAmount` | `intensity` 1–100 |
+| Android backend | `RenderEffect` | Dimezis BlurView | Dimezis BlurView |
+| Android blur by default | ✅ (API 31+) | ✅ | ❌ opt-in |
+| Cross-platform calibration | measured, 2.9% | not stated | manual |
+| Liquid Glass | ✅ | ❌ | ❌ |
+| Layer blur | ✅ | ❌ | ❌ |
+| New Architecture | required | supported | supported |
+
+The other two are good at what they set out to do, and neither claims the
+platforms will match. `expo-blur` ships a `blurReductionFactor` documented as a
+way to "fine tune it on Android to match it more closely with iOS" — an honest
+description of a real situation, and it names the cost: agreement is your job, by
+hand.
+
+**Reasons to pick something else** — old architecture, Android below 12, a
+managed Expo workflow, or a review process that forbids private iOS symbols. All
+covered in the [full comparison](docs/comparison.md).
+
+## Size
+
+| | |
+|---|---|
+| npm package | **46.6 kB** packed · 167 kB unpacked |
+| JS bundle | **+6.9 kB** raw · **+1.8 kB** gzipped |
+| Runtime dependencies | **none** |
+
+Measured as a real diff between two Metro release bundles. Details and the
+per-frame cost model are in [performance and size](docs/performance.md).
+
 ## Performance
 
-Both platforms are GPU-only, with no per-frame bitmap anywhere.
+Both platforms are GPU-only: no bitmap capture, no readback, no CPU blur, and no
+per-frame allocation.
 
-**iOS** samples the backdrop through a `CABackdropLayer` — live GPU capture, so
-it costs nothing extra while scrolling. **Android** records the ancestor tree
-into a `RenderNode` and hangs a `RenderEffect` off it; the only CPU cost is a
-display-list re-record, which scales with the number of views behind the blur
-rather than its pixel area.
+**iOS** samples the backdrop through `CABackdropLayer` — the compositor reading
+the frame it is already assembling — so there is no snapshot and no display link,
+and scrolling costs nothing extra. **Android** re-records the views painted
+before the blur into a `RenderNode` and hangs a `RenderEffect` off it.
+
+The one counter-intuitive thing worth knowing: on Android the per-frame cost
+scales with the **number of views** behind the blur, not with the blur's radius
+or pixel area. The blur itself runs on a downscaled copy, so `blurRadius={200}`
+costs about what `blurRadius={20}` costs. A simplified backdrop beats a smaller
+radius every time.
+
+[Performance and size](docs/performance.md) has the cost model and how to measure
+it on your own hardware.
 
 ## API
 
@@ -228,6 +273,9 @@ A build-time switch to remove the private symbols entirely is on the
 - **[Verifying parity](docs/parity.md)** — the harness, the measured numbers, and
   two ways measuring has already gone wrong
 - **[Troubleshooting](docs/troubleshooting.md)** — start with `getCapabilities()`
+- **[Comparison](docs/comparison.md)** — versus the alternatives, from their source
+- **[Performance and size](docs/performance.md)** — what a blur costs per frame,
+  and how to measure it on your own hardware
 - **[Roadmap](ROADMAP.md)** — what is next, and what is honestly not there yet
 
 ## Running the example

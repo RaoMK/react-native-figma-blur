@@ -153,6 +153,10 @@ class HardwareBackdrop {
   private val location = IntArray(2)
   private val rootLocation = IntArray(2)
 
+  // Reused across captures. This runs once per frame per blur view, so a fresh
+  // list here would be a steady drip of garbage for the life of the screen.
+  private val ancestorChain = ArrayList<View>(8)
+
   fun capture(host: View, root: View, downsample: Int, capturePad: Int) {
     if (host.width == 0 || host.height == 0) return
 
@@ -200,7 +204,8 @@ class HardwareBackdrop {
    * their own RenderNodes, so their display lists are reused rather than rebuilt.
    */
   private fun drawWhatIsBehind(host: View, root: View, canvas: Canvas) {
-    val chain = ArrayList<View>(8)
+    val chain = ancestorChain
+    chain.clear()
     var view: View = host
     chain.add(view)
     while (view !== root) {

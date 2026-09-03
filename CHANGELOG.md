@@ -48,6 +48,14 @@ appearances. Full numbers in [docs/parity.md](docs/parity.md).
 - The rendered-sigma measurements were taken from hand-picked coordinates on the
   fixture screen; a dedicated fixture would make them a single command.
 
+### Size
+
+| | |
+|---|---|
+| npm package | 46.6 kB packed, 167 kB unpacked |
+| JS bundle contribution | 6.9 kB raw, 1.8 kB gzipped |
+| Runtime dependencies | none |
+
 See the [roadmap](ROADMAP.md).
 
 [0.1.0]: https://github.com/RaoMK/react-native-figma-blur/releases/tag/v0.1.0
